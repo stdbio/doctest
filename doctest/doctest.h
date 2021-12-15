@@ -879,9 +879,8 @@ namespace detail {
 
     DOCTEST_INTERFACE void my_memcpy(void* dest, const void* src, unsigned num);
 
-    DOCTEST_INTERFACE std::ostream* getTlsOss(bool reset=true); // returns a thread-local ostringstream
+    DOCTEST_INTERFACE std::ostream* getTlsOss(); // returns a thread-local ostringstream
     DOCTEST_INTERFACE String getTlsOssResult();
-
 
     template <bool C>
     struct StringMakerBase
@@ -897,7 +896,7 @@ namespace detail {
     struct filldata
     {
         static void fill(const  T &in) {
-          *getTlsOss() << in;
+            *getTlsOss() << in;
         }
     };
 
@@ -905,7 +904,7 @@ namespace detail {
     template<typename T,unsigned long N>
     void fillstream(const T (&in)[N] ) {
         for(unsigned long i = 0; i < N; i++) {
-            *getTlsOss(false) << in[i];
+            *getTlsOss() << in[i];
         }
     }
 
@@ -913,21 +912,20 @@ namespace detail {
     struct filldata<T[N]>
     {
         static void fill(const T (&in)[N]) {
-            getTlsOss(); // called once here to clear the stringstream
             fillstream(in);
         }
     };
 
     template<typename T>
     void filloss(const T& in){
-	filldata<T>::fill(in);
+        filldata<T>::fill(in);
     }
 
     template<typename T,unsigned long N>
     void filloss(const T (&in)[N]) {
-	// T[N], T(&)[N], T(&&)[N] have same behaviour.
+        // T[N], T(&)[N], T(&&)[N] have same behaviour.
         // Hence remove reference.
-	filldata<typename remove_reference <decltype(in)>::type >::fill(in);
+        filldata<typename remove_reference <decltype(in)>::type >::fill(in);
     }
 
     template <>
@@ -936,12 +934,11 @@ namespace detail {
         template <typename T>
         static String convert(const DOCTEST_REF_WRAP(T) in) {
             /* When parameter "in" is a null terminated const char* it works.
-	     * When parameter "in" is a T arr[N] without '\0' we can fill the
+             * When parameter "in" is a T arr[N] without '\0' we can fill the
              * stringstream with N objects (T=char).If in is char pointer *
              * without '\0' , it would cause segfault
-	     * stepping over unaccessible memory.
+             * stepping over unaccessible memory.
              */
-
             filloss(in);
             return getTlsOssResult();
         }
@@ -1167,14 +1164,14 @@ DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wunused-comparison")
 #define DOCTEST_DO_BINARY_EXPRESSION_COMPARISON(op, op_str, op_macro)                              \
     template <typename R>                                                                          \
     DOCTEST_NOINLINE SFINAE_OP(Result,op) operator op(const R&& rhs) {                             \
-    bool res = op_macro(doctest::detail::forward<const L>(lhs), doctest::detail::forward<const R>(rhs));                                                             \
+    bool res = op_macro(doctest::detail::forward<const L>(lhs), doctest::detail::forward<const R>(rhs)); \
         if(m_at & assertType::is_false)                                                            \
             res = !res;                                                                            \
         if(!res || doctest::getContextOptions()->success)                                          \
             return Result(res, stringifyBinaryExpr(lhs, op_str, rhs));                             \
         return Result(res);                                                                        \
-    }												   \
-    template <typename R ,typename enable_if<  !doctest::detail::is_rvalue_reference<R>::value   , void >::type* = nullptr>                                         \
+    }                                                                                              \
+    template <typename R ,typename enable_if<  !doctest::detail::is_rvalue_reference<R>::value   , void >::type* = nullptr> \
     DOCTEST_NOINLINE SFINAE_OP(Result,op) operator op(const R& rhs) {                              \
     bool res = op_macro(doctest::detail::forward<const L>(lhs), rhs);                              \
         if(m_at & assertType::is_false)                                                            \
@@ -1323,9 +1320,9 @@ DOCTEST_MSVC_SUPPRESS_WARNING_POP
             return Result(res);
         }
 
-	/* This is required for user-defined conversions from Expression_lhs to L */
-	//operator L() const { return lhs; }
-	operator L() const { return lhs; }
+    /* This is required for user-defined conversions from Expression_lhs to L */
+    //operator L() const { return lhs; }
+    operator L() const { return lhs; }
 
         // clang-format off
         DOCTEST_DO_BINARY_EXPRESSION_COMPARISON(==, " == ", DOCTEST_CMP_EQ) //!OCLINT bitwise operator in conditional
@@ -1382,12 +1379,12 @@ DOCTEST_CLANG_SUPPRESS_WARNING_POP
         // https://github.com/catchorg/Catch2/issues/870
         // https://github.com/catchorg/Catch2/issues/565
         template <typename L>
-	Expression_lhs<const L> operator<<(const L &&operand) {
+        Expression_lhs<const L> operator<<(const L &&operand) {
             return Expression_lhs<const L>(doctest::detail::forward<const L>(operand), m_at);
         }
 
         template <typename L,typename enable_if<!doctest::detail::is_rvalue_reference<L>::value,void >::type* = nullptr>
-	Expression_lhs<const L&> operator<<(const L &operand) {
+        Expression_lhs<const L&> operator<<(const L &operand) {
             return Expression_lhs<const L&>(operand, m_at);
         }
     };
@@ -3064,19 +3061,17 @@ namespace detail {
 
     DOCTEST_THREAD_LOCAL std::ostringstream g_oss; // NOLINT(cert-err58-cpp)
 
-    //reset default value is true. getTlsOss(bool reset=true);
-    std::ostream* getTlsOss(bool reset) {
-        if(reset) {
-          g_oss.clear(); // there shouldn't be anything worth clearing in the flags
-          g_oss.str(""); // the slow way of resetting a string stream
-          //g_oss.seekp(0); // optimal reset - as seen here: https://stackoverflow.com/a/624291/3162383
-	}
+    std::ostream* getTlsOss() {
         return &g_oss;
     }
 
     String getTlsOssResult() {
         //g_oss << std::ends; // needed - as shown here: https://stackoverflow.com/a/624291/3162383
-        return g_oss.str().c_str();
+        String out = g_oss.str().c_str();
+        g_oss.clear(); // there shouldn't be anything worth clearing in the flags
+        g_oss.str(""); // the slow way of resetting a string stream
+        //g_oss.seekp(0); // optimal reset - as seen here: https://stackoverflow.com/a/624291/3162383
+        return out;
     }
 
 #ifndef DOCTEST_CONFIG_DISABLE
@@ -3864,8 +3859,8 @@ namespace detail {
         DOCTEST_ITERATE_THROUGH_REPORTERS(subcase_start, m_signature);
     }
 
-    DOCTEST_MSVC_SUPPRESS_WARNING_WITH_PUSH(4996) // std::uncaught_exception is deprecated in C++17	
-    DOCTEST_GCC_SUPPRESS_WARNING_WITH_PUSH("-Wdeprecated-declarations")	
+    DOCTEST_MSVC_SUPPRESS_WARNING_WITH_PUSH(4996) // std::uncaught_exception is deprecated in C++17
+    DOCTEST_GCC_SUPPRESS_WARNING_WITH_PUSH("-Wdeprecated-declarations")
     DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wdeprecated-declarations")
 
     Subcase::~Subcase() {
@@ -3892,8 +3887,8 @@ namespace detail {
         }
     }
 
-    DOCTEST_CLANG_SUPPRESS_WARNING_POP	
-    DOCTEST_GCC_SUPPRESS_WARNING_POP	
+    DOCTEST_CLANG_SUPPRESS_WARNING_POP
+    DOCTEST_GCC_SUPPRESS_WARNING_POP
     DOCTEST_MSVC_SUPPRESS_WARNING_POP
 
     Subcase::operator bool() const { return m_entered; }
@@ -4239,8 +4234,8 @@ namespace detail {
         g_infoContexts.push_back(this);
     }
 
-    DOCTEST_MSVC_SUPPRESS_WARNING_WITH_PUSH(4996) // std::uncaught_exception is deprecated in C++17	
-    DOCTEST_GCC_SUPPRESS_WARNING_WITH_PUSH("-Wdeprecated-declarations")	
+    DOCTEST_MSVC_SUPPRESS_WARNING_WITH_PUSH(4996) // std::uncaught_exception is deprecated in C++17
+    DOCTEST_GCC_SUPPRESS_WARNING_WITH_PUSH("-Wdeprecated-declarations")
     DOCTEST_CLANG_SUPPRESS_WARNING_WITH_PUSH("-Wdeprecated-declarations")
 
     // destroy cannot be inlined into the destructor because that would mean calling stringify after
@@ -4259,8 +4254,8 @@ namespace detail {
         g_infoContexts.pop_back();
     }
 
-    DOCTEST_CLANG_SUPPRESS_WARNING_POP	
-    DOCTEST_GCC_SUPPRESS_WARNING_POP	
+    DOCTEST_CLANG_SUPPRESS_WARNING_POP
+    DOCTEST_GCC_SUPPRESS_WARNING_POP
     DOCTEST_MSVC_SUPPRESS_WARNING_POP
 } // namespace detail
 namespace {
