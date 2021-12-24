@@ -1797,7 +1797,7 @@ public:
 
     void setCout(std::ostream* out);
 
-    int run();
+    int run(unsigned int cpu_num = 1UL, unsigned int cpu_id = 0UL);
 };
 
 namespace TestCaseFailureReason {
@@ -3714,7 +3714,7 @@ bool Context::shouldExit() { return false; }
 void Context::setAsDefaultForAssertsOutOfTestCases() {}
 void Context::setAssertHandler(detail::assert_handler) {}
 void Context::setCout(std::ostream* out) {}
-int  Context::run() { return 0; }
+int  Context::run(unsigned int, unsigned int) { return 0; }
 
 IReporter::~IReporter() = default;
 
@@ -4000,6 +4000,25 @@ namespace detail {
         static std::set<TestCase> data;
         return data;
     }
+
+    std::vector<const TestCase*> getShardedRegsteredTests(uint32_t cpu_num, uint32_t shard) {
+        auto& total_cases = getRegisteredTests();
+        auto num_per_shard = uint32_t(total_cases.size() / cpu_num);
+        // but the start_offset and end_offset was just an assumption of normail size of TestCase.
+        auto start_offset = num_per_shard * shard;
+        auto end_offset =  num_per_shard * (shard+1);
+
+        uint32_t curr = 0;
+        std::vector<const TestCase*> ret_cases;
+        for (auto& tc: total_cases) {
+            if(curr >= start_offset && curr < end_offset) {
+                ret_cases.push_back(&tc);
+            }
+            curr++;
+        }
+        return ret_cases;
+    }
+
 } // namespace detail
 namespace {
     using namespace detail;
@@ -6445,7 +6464,7 @@ public:
 } discardOut;
 
 // the main function that does all the filtering and test running
-int Context::run() {
+int Context::run(unsigned int cpu_num, unsigned int cpu_id) {
     using namespace detail;
 
     // save the old context state in case such was setup - for using asserts out of a testing context
@@ -6522,8 +6541,8 @@ int Context::run() {
     }
 
     std::vector<const TestCase*> testArray;
-    for(auto& curr : getRegisteredTests())
-        testArray.push_back(&curr);
+    for(auto& curr : getShardedRegsteredTests(cpu_num, cpu_id))
+        testArray.push_back(curr);
     p->numTestCases = testArray.size();
 
     // sort the collected records
