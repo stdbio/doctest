@@ -1949,7 +1949,7 @@ public:
 
     void setCout(std::ostream* out);
 
-    int run();
+    int run(unsigned int cpu_num = 1UL, unsigned int cpu_id = 0UL);
 };
 
 namespace TestCaseFailureReason {
