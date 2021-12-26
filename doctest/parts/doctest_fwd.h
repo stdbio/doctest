@@ -533,7 +533,7 @@ namespace doctest {
 
 using std::size_t;
 
-DOCTEST_INTERFACE extern bool is_running_in_test;
+DOCTEST_INTERFACE extern thread_local bool is_running_in_test;
 
 #ifndef DOCTEST_CONFIG_STRING_SIZE_TYPE
 #define DOCTEST_CONFIG_STRING_SIZE_TYPE unsigned

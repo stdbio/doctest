@@ -181,7 +181,7 @@ DOCTEST_MAKE_STD_HEADERS_CLEAN_FROM_WARNINGS_ON_WALL_END
 
 namespace doctest {
 
-bool is_running_in_test = false;
+thread_local bool is_running_in_test = false;
 
 namespace {
     using namespace detail;
@@ -485,7 +485,7 @@ using ticks_t = timer_large_integer::type;
         }
     };
 
-    ContextState* g_cs = nullptr;
+    thread_local ContextState* g_cs = nullptr;
 
     // used to avoid locks for the debug output
     // TODO: figure out if this is indeed necessary/correct - seems like either there still
@@ -1712,11 +1712,11 @@ namespace {
 
     struct FatalConditionHandler
     {
-        static bool             isSet;
-        static struct sigaction oldSigActions[DOCTEST_COUNTOF(signalDefs)];
-        static stack_t          oldSigStack;
-        static size_t           altStackSize;
-        static char*            altStackMem;
+        thread_local static bool             isSet;
+        thread_local static struct sigaction oldSigActions[DOCTEST_COUNTOF(signalDefs)];
+        thread_local static stack_t          oldSigStack;
+        thread_local static size_t           altStackSize;
+        thread_local static char*            altStackMem;
 
         static void handleSignal(int sig) {
             const char* name = "<unknown signal>";
@@ -1769,11 +1769,11 @@ namespace {
         }
     };
 
-    bool             FatalConditionHandler::isSet = false;
-    struct sigaction FatalConditionHandler::oldSigActions[DOCTEST_COUNTOF(signalDefs)] = {};
-    stack_t          FatalConditionHandler::oldSigStack = {};
-    size_t           FatalConditionHandler::altStackSize = 4 * SIGSTKSZ;
-    char*            FatalConditionHandler::altStackMem = nullptr;
+    thread_local bool             FatalConditionHandler::isSet = false;
+    thread_local struct sigaction FatalConditionHandler::oldSigActions[DOCTEST_COUNTOF(signalDefs)] = {};
+    thread_local stack_t          FatalConditionHandler::oldSigStack = {};
+    thread_local size_t           FatalConditionHandler::altStackSize = 4 * SIGSTKSZ;
+    thread_local char*            FatalConditionHandler::altStackMem = nullptr;
 
 #endif // DOCTEST_PLATFORM_WINDOWS
 #endif // DOCTEST_CONFIG_POSIX_SIGNALS || DOCTEST_CONFIG_WINDOWS_SEH
