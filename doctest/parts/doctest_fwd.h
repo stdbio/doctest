@@ -462,7 +462,7 @@ DOCTEST_MSVC_SUPPRESS_WARNING_POP
 
 namespace doctest {
 
-DOCTEST_INTERFACE extern bool is_running_in_test;
+DOCTEST_INTERFACE extern thread_local bool is_running_in_test;
 
 // A 24 byte string class (can be as small as 17 for x64 and 13 for x86) that can hold strings with length
 // of up to 23 chars on the stack before going on the heap - the last byte of the buffer is used for:
