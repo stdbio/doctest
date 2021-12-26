@@ -1837,6 +1837,15 @@ struct DOCTEST_INTERFACE TestRunStats
     unsigned numTestCasesFailed;
     int      numAsserts;
     int      numAssertsFailed;
+    TestRunStats& operator+=(TestRunStats& other) {
+        numTestCases += other.numTestCases;
+        numTestCasesPassingFilters += other.numTestCasesPassingFilters;
+        numTestSuitesPassingFilters += other.numTestSuitesPassingFilters;
+        numTestCasesFailed += other.numTestCasesFailed;
+        numAsserts += other.numAsserts;
+        numAssertsFailed += other.numAssertsFailed;
+        return *this;
+    }
 };
 
 struct QueryData
