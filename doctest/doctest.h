@@ -465,7 +465,7 @@ DOCTEST_MSVC_SUPPRESS_WARNING_POP
 
 namespace doctest {
 
-DOCTEST_INTERFACE extern bool is_running_in_test;
+DOCTEST_INTERFACE extern thread_local bool is_running_in_test;
 
 // A 24 byte string class (can be as small as 17 for x64 and 13 for x86) that can hold strings with length
 // of up to 23 chars on the stack before going on the heap - the last byte of the buffer is used for:
@@ -1840,6 +1840,15 @@ struct DOCTEST_INTERFACE TestRunStats
     unsigned numTestCasesFailed;
     int      numAsserts;
     int      numAssertsFailed;
+    TestRunStats& operator+=(TestRunStats& other) {
+        numTestCases += other.numTestCases;
+        numTestCasesPassingFilters += other.numTestCasesPassingFilters;
+        numTestSuitesPassingFilters += other.numTestSuitesPassingFilters;
+        numTestCasesFailed += other.numTestCasesFailed;
+        numAsserts += other.numAsserts;
+        numAssertsFailed += other.numAssertsFailed;
+        return *this;
+    }
 };
 
 struct QueryData
@@ -3017,7 +3026,7 @@ DOCTEST_MAKE_STD_HEADERS_CLEAN_FROM_WARNINGS_ON_WALL_END
 
 namespace doctest {
 
-bool is_running_in_test = false;
+thread_local bool is_running_in_test = false;
 
 namespace {
     using namespace detail;
@@ -3316,7 +3325,8 @@ typedef timer_large_integer::type ticks_t;
         }
     };
 
-    ContextState* g_cs = nullptr;
+    thread_local ContextState* g_cs = nullptr;
+    uint32_t g_cpu_num = 0;
 
     // used to avoid locks for the debug output
     // TODO: figure out if this is indeed necessary/correct - seems like either there still
@@ -3762,6 +3772,37 @@ namespace {
     }
 } // namespace
 namespace detail {
+    std::mutex g_test_run_start_mutex;
+    bool g_test_run_start_bool = false;
+
+    std::mutex g_test_run_end_mutex;
+    uint32_t g_test_run_end_int = 0;
+    TestRunStats final_test_run_end_stats{};
+
+    #define DOCTEST_GET_MUTEX(func) g_##func##_mutex
+    #define DOCTEST_GET_BOOL(func) g_##func##_bool
+    #define DOCTEST_GET_INT(func) g_##func##_int
+
+#define DOCTEST_ITERATE_THROUGH_REPORTERS_ONCE(function, ...)                                      \
+    do {                                                                                           \
+        std::lock_guard<std::mutex> guard(DOCTEST_GET_MUTEX(function));                            \
+        if (DOCTEST_GET_BOOL(function) == false) {                                                 \
+            DOCTEST_ITERATE_THROUGH_REPORTERS(function, __VA_ARGS__);                              \
+            DOCTEST_GET_BOOL(function) = true;                                                     \
+        }                                                                                          \
+    } while(false)
+
+#define DOCTEST_ITERATE_THROUGH_REPORTERS_FINAL(function, count, ...)                              \
+    do {                                                                                           \
+        std::lock_guard<std::mutex> guard(DOCTEST_GET_MUTEX(function));                            \
+        if (DOCTEST_GET_INT(function)++ < count) {                                                 \
+            final_test_run_end_stats += (__VA_ARGS__);                                             \
+        }                                                                                          \
+        if (DOCTEST_GET_INT(function) == count){                                                   \
+            DOCTEST_ITERATE_THROUGH_REPORTERS(function, final_test_run_end_stats);                 \
+        }                                                                                          \
+    } while(false)
+
 #define DOCTEST_ITERATE_THROUGH_REPORTERS(function, ...)                                           \
     for(auto& curr_rep : g_cs->reporters_currently_used)                                           \
     curr_rep->function(__VA_ARGS__)
@@ -4483,11 +4524,11 @@ namespace {
 
     struct FatalConditionHandler
     {
-        static bool             isSet;
-        static struct sigaction oldSigActions[DOCTEST_COUNTOF(signalDefs)];
-        static stack_t          oldSigStack;
-        static size_t           altStackSize;
-        static char*            altStackMem;
+        thread_local static bool             isSet;
+        thread_local static struct sigaction oldSigActions[DOCTEST_COUNTOF(signalDefs)];
+        thread_local static stack_t          oldSigStack;
+        thread_local static size_t           altStackSize;
+        thread_local static char*            altStackMem;
 
         static void handleSignal(int sig) {
             const char* name = "<unknown signal>";
@@ -4540,11 +4581,11 @@ namespace {
         }
     };
 
-    bool             FatalConditionHandler::isSet = false;
-    struct sigaction FatalConditionHandler::oldSigActions[DOCTEST_COUNTOF(signalDefs)] = {};
-    stack_t          FatalConditionHandler::oldSigStack = {};
-    size_t           FatalConditionHandler::altStackSize = 4 * SIGSTKSZ;
-    char*            FatalConditionHandler::altStackMem = nullptr;
+    thread_local bool             FatalConditionHandler::isSet = false;
+    thread_local struct sigaction FatalConditionHandler::oldSigActions[DOCTEST_COUNTOF(signalDefs)] = {};
+    thread_local stack_t          FatalConditionHandler::oldSigStack = {};
+    thread_local size_t           FatalConditionHandler::altStackSize = 4 * SIGSTKSZ;
+    thread_local char*            FatalConditionHandler::altStackMem = nullptr;
 
 #endif // DOCTEST_PLATFORM_WINDOWS
 #endif // DOCTEST_CONFIG_POSIX_SIGNALS || DOCTEST_CONFIG_WINDOWS_SEH
@@ -4586,7 +4627,7 @@ namespace {
 
         DOCTEST_ITERATE_THROUGH_REPORTERS(test_case_end, *g_cs);
 
-        DOCTEST_ITERATE_THROUGH_REPORTERS(test_run_end, *g_cs);
+        DOCTEST_ITERATE_THROUGH_REPORTERS_FINAL(test_run_end, g_cpu_num, *g_cs);
     }
 #endif // DOCTEST_CONFIG_POSIX_SIGNALS || DOCTEST_CONFIG_WINDOWS_SEH
 } // namespace
@@ -6470,6 +6511,7 @@ public:
 int Context::run(unsigned int cpu_num, unsigned int cpu_id) {
     using namespace detail;
 
+    g_cpu_num = cpu_num;
     // save the old context state in case such was setup - for using asserts out of a testing context
     auto old_cs = g_cs;
     // this is the current contest
@@ -6581,7 +6623,7 @@ int Context::run(unsigned int cpu_num, unsigned int cpu_id) {
     std::vector<const TestCaseData*> queryResults;
 
     if(!query_mode)
-        DOCTEST_ITERATE_THROUGH_REPORTERS(test_run_start, DOCTEST_EMPTY);
+        DOCTEST_ITERATE_THROUGH_REPORTERS_ONCE(test_run_start, DOCTEST_EMPTY);
 
     // invoke the registered functions if they match the filter criteria (or just count them)
     for(auto& curr : testArray) {
@@ -6714,7 +6756,7 @@ DOCTEST_MSVC_SUPPRESS_WARNING_POP
     }
 
     if(!query_mode) {
-        DOCTEST_ITERATE_THROUGH_REPORTERS(test_run_end, *g_cs);
+        DOCTEST_ITERATE_THROUGH_REPORTERS_FINAL(test_run_end, cpu_num, *g_cs);
     } else {
         QueryData qdata;
         qdata.run_stats = g_cs;
