@@ -1292,21 +1292,14 @@ namespace detail {
 
     std::vector<const TestCase*> getShardedRegsteredTests(uint32_t cpu_num, uint32_t shard) {
         auto& total_cases = getRegisteredTests();
-        auto num_per_shard = uint32_t(total_cases.size() / cpu_num);
-        if (total_cases.size() % cpu_num != 0) {
-            num_per_shard++;
-        }
-        // but the start_offset and end_offset was just an assumption of normail size of TestCase.
-        auto start_offset = num_per_shard * shard;
-        auto end_offset =  num_per_shard * (shard+1);
 
         uint32_t curr = 0;
         std::vector<const TestCase*> ret_cases;
         for (auto& tc: total_cases) {
-            if(curr >= start_offset && curr < end_offset) {
+            if(curr % cpu_num == shard) {
                 ret_cases.push_back(&tc);
             }
-            curr++;
+            ++curr;
         }
         return ret_cases;
     }
