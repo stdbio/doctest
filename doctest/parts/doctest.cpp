@@ -1840,7 +1840,7 @@ namespace detail {
             std::abort();
     }
 
-    void decomp_assert(assertType::Enum at, const char* file, int line, const char* expr,
+    bool decomp_assert(assertType::Enum at, const char* file, int line, const char* expr,
                        Result result) {
         bool failed = !result.m_passed;
 
@@ -1851,6 +1851,7 @@ namespace detail {
         DOCTEST_ASSERT_OUT_OF_TESTS(result.m_decomp);
         DOCTEST_ASSERT_IN_TESTS(result.m_decomp);
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
+        return !failed;
     }
 
     MessageBuilder::MessageBuilder(const char* file, int line, assertType::Enum severity) {
