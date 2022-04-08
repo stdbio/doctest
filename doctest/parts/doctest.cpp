@@ -2021,9 +2021,9 @@ namespace {
 
         void ensureTagClosed();
 
-    private:
-
         void writeDeclaration();
+
+    private:
 
         void newlineIfNecessary();
 
@@ -2213,7 +2213,7 @@ namespace {
 
     XmlWriter::XmlWriter( std::ostream& os ) : m_os( os )
     {
-        writeDeclaration();
+        // writeDeclaration(); // called explicitly by the reporters that use the writer class - see issue #627
     }
 
     XmlWriter::~XmlWriter() {
@@ -2324,7 +2324,7 @@ namespace {
 
     struct XmlReporter : public IReporter
     {
-        XmlWriter  xml;
+        XmlWriter xml;
         DOCTEST_DECLARE_MUTEX(mutex)
 
         // caching pointers/references to objects of these types - safe to do
@@ -2419,6 +2419,8 @@ namespace {
         }
 
         void test_run_start() override {
+            xml.writeDeclaration();
+
             // remove .exe extension - mainly to have the same output on UNIX and Windows
             std::string binary_name = skipPathFromFilename(opt.binary_name.c_str());
 #ifdef DOCTEST_PLATFORM_WINDOWS
@@ -2616,7 +2618,7 @@ namespace {
     // - more attributes in tags
     struct JUnitReporter : public IReporter
     {
-        XmlWriter  xml;
+        XmlWriter xml;
         DOCTEST_DECLARE_MUTEX(mutex)
         Timer timer;
         std::vector<String> deepestSubcaseStackNames;
@@ -2713,9 +2715,13 @@ namespace {
         // WHAT FOLLOWS ARE OVERRIDES OF THE VIRTUAL METHODS OF THE REPORTER INTERFACE
         // =========================================================================================
 
-        void report_query(const QueryData&) override {}
+        void report_query(const QueryData&) override {
+            xml.writeDeclaration();
+        }
 
-        void test_run_start() override {}
+        void test_run_start() override {
+            xml.writeDeclaration();
+        }
 
         void test_run_end(const TestRunStats& p) override {
             // remove .exe extension - mainly to have the same output on UNIX and Windows
