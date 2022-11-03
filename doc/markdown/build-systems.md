@@ -1,8 +1,8 @@
 ## Build systems
 
-The latest released version of doctest can be obtained from here: https://raw.githubusercontent.com/onqtam/doctest/master/doctest/doctest.h
+The latest released version of doctest can be obtained from here: https://raw.githubusercontent.com/doctest/doctest/master/doctest/doctest.h
 
-You can substitute ```master``` with ```dev``` or a tag like ```1.2.9``` for a specific version in the URL above.
+You can substitute ```master``` with ```dev``` or a tag like ```v1.4.8``` for a specific version in the URL above.
 
 ### CMake
 
@@ -30,7 +30,7 @@ find_package(Git REQUIRED)
 ExternalProject_Add(
     doctest
     PREFIX ${CMAKE_BINARY_DIR}/doctest
-    GIT_REPOSITORY https://github.com/onqtam/doctest.git
+    GIT_REPOSITORY https://github.com/doctest/doctest.git
     TIMEOUT 10
     UPDATE_COMMAND ${GIT_EXECUTABLE} pull
     CONFIGURE_COMMAND ""
@@ -69,11 +69,21 @@ target_link_libraries(my_tests doctest)
 
 **doctest** is available through the following package managers:
 
-- vcpkg
+- vcpkg    
+    - You can download and install doctest using the [vcpkg](https://github.com/Microsoft/vcpkg) dependency manager:
+      ```sh
+        git clone https://github.com/Microsoft/vcpkg.git
+        cd vcpkg
+        ./bootstrap-vcpkg.sh #.\bootstrap-vcpkg.bat(for windows)
+        ./vcpkg integrate install
+        ./vcpkg install doctest
+      ```
+      The doctest port in vcpkg is kept up to date by Microsoft team members and community contributors. If the version is out of date, please create an issue or pull request on the [vcpkg repository](https://github.com/Microsoft/vcpkg).
+
 - hunter
 - conan
-    - https://bintray.com/bincrafters/public-conan/doctest:bincrafters
-    - https://bintray.com/mmha/conan/doctest%3Ammha
+    - https://conan.io/center/doctest
+    - https://github.com/conan-io/conan-center-index/tree/master/recipes/doctest
 - Homebrew (`brew install doctest`)
 
 ---
