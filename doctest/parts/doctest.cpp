@@ -75,9 +75,9 @@ DOCTEST_MAKE_STD_HEADERS_CLEAN_FROM_WARNINGS_ON_WALL_BEGIN
 #include <algorithm>
 #include <iomanip>
 #include <vector>
+#include <mutex>
 #ifndef DOCTEST_CONFIG_NO_MULTITHREADING
 #include <atomic>
-#include <mutex>
 #define DOCTEST_DECLARE_MUTEX(name) std::mutex name;
 #define DOCTEST_DECLARE_STATIC_MUTEX(name) static DOCTEST_DECLARE_MUTEX(name)
 #define DOCTEST_LOCK_MUTEX(name) std::lock_guard<std::mutex> DOCTEST_ANONYMOUS(DOCTEST_ANON_LOCK_)(name);
